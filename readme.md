@@ -39,6 +39,11 @@ func main() {
 
 	gouterInstance.Add("GET", "/list/:id/edit", Edit)
 
+	// You can set own 404 error handler
+	gouterInstance.SetNotFoundHandler(func(w http.ResponseWriter, req *http.Request) {
+		http.Error(w, "404 custom error!", http.StatusNotFound)
+	})
+
 	http.ListenAndServe(":8080", gouterInstance)
 }
 
