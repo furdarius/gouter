@@ -17,13 +17,15 @@ const (
 
 // Router is an implementation of http.Handler. It is used for processing of incoming url requests.
 type Router struct {
-	methods map[string]*node
+	methods         map[string]*node
+	notFoundHandler http.HandlerFunc
 }
 
 // New returns a new instance of Router.
 func New() *Router {
 	return &Router{
-		methods: make(map[string]*node, methodsNum),
+		methods:         make(map[string]*node, methodsNum),
+		notFoundHandler: nil,
 	}
 }
 
@@ -73,22 +75,43 @@ func (r *Router) Add(method string, route string, handle HandlerFunc) {
 	root.insert(route, handle)
 }
 
+// SetNotFoundHandler alow user define own handler for 404 error.
+func (r *Router) SetNotFoundHandler(handler http.HandlerFunc) {
+	r.notFoundHandler = handler
+}
+
 // ServeHTTP makes the router implement the http.Handler interface.
-func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	route := req.URL.Path
-	method := req.Method
+func (r *Router) ServeHTTP(responseWriter http.ResponseWriter, request *http.Request) {
+	route := request.URL.Path
+	method := request.Method
 
 	root := r.methods[method]
 
 	if root == nil {
-		http.NotFound(w, req)
+		if r.notFoundHandler == nil {
+			http.NotFound(responseWriter, request)
+
+			return
+		}
+
+		r.notFoundHandler(responseWriter, request)
+
+		return
 	}
 
 	handler, params := root.lookup(route)
 
 	if handler == nil {
-		http.NotFound(w, req)
+		if r.notFoundHandler == nil {
+			http.NotFound(responseWriter, request)
+
+			return
+		}
+
+		r.notFoundHandler(responseWriter, request)
+
+		return
 	}
 
-	handler(w, req, params)
+	handler(responseWriter, request, params)
 }
